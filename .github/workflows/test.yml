@@ -20,7 +20,7 @@ jobs:
           cache: 'maven'
 
       - name: Build
-        run: mvn clean build
+        run: mvn clean compile
 
       
       - name: Generate Java docs
