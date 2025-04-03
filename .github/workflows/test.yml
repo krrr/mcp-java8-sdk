@@ -1,0 +1,30 @@
+name: test
+
+on:
+  push:
+    branches: [ "main" ]
+
+jobs:
+  build:
+    name: Build branch
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout source code
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 8
+        uses: actions/setup-java@v4
+        with:
+          java-version: '8'
+          distribution: 'temurin'
+          cache: 'maven'
+
+      - name: Build
+        run: mvn clean build
+
+      
+      - name: Generate Java docs
+        run: mvn -Pjavadoc -B javadoc:aggregate
+
+      - name: Capture project version
+        run: echo PROJECT_VERSION=$(mvn help:evaluate -Dexpression=project.version --quiet -DforceStdout) >> $GITHUB_ENV
