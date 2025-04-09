@@ -92,12 +92,14 @@
 		<awaitility.version>4.2.0</awaitility.version>
 		<bnd-maven-plugin.version>5.0.1</bnd-maven-plugin.version>
 		<json-unit-assertj.version>4.1.0</json-unit-assertj.version>
+		<solon.version>3.1.2</solon.version>
 
 	</properties>
 
 	<modules>
 		<module>mcp-bom</module>
 		<module>mcp</module>
+		<module>mcp-solon/mcp-solon-webrx</module>
 		<module>mcp-spring/mcp-spring-webflux</module>
 		<module>mcp-spring/mcp-spring-webmvc</module>
 	</modules>

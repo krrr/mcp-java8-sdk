@@ -1284,6 +1284,9 @@ public final class McpSchema {
 
 	@JsonInclude(JsonInclude.Include.NON_ABSENT)
 	@JsonIgnoreProperties(ignoreUnknown = true)
+	@Data
+	@AllArgsConstructor
+	@NoArgsConstructor
 	public static class ImageContent implements Content { // @formatter:on
 		@JsonProperty("audience") List<Role> audience;
 		@JsonProperty("priority") Double priority;
@@ -1293,6 +1296,9 @@ public final class McpSchema {
 
 	@JsonInclude(JsonInclude.Include.NON_ABSENT)
 	@JsonIgnoreProperties(ignoreUnknown = true)
+	@Data
+	@AllArgsConstructor
+	@NoArgsConstructor
 	public static class EmbeddedResource implements Content { // @formatter:on
 		@JsonProperty("audience") List<Role> audience;
 		@JsonProperty("priority") Double priority;
