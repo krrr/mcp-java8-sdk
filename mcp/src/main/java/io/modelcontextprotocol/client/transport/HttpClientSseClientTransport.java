@@ -127,6 +127,7 @@ public class HttpClientSseClientTransport implements McpClientTransport {
 		var globalConfig = RequestConfig.custom().setConnectTimeout(Timeout.ofSeconds(10)).build();
 		clientBuilder.setDefaultRequestConfig(globalConfig);
 		this.httpClient = clientBuilder.build();
+		this.httpClient.start();
 		this.sseClient = new FlowSseClient(this.httpClient);
 	}
 

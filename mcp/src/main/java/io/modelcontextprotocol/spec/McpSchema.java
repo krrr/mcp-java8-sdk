@@ -622,6 +622,7 @@ public final class McpSchema {
 	@JsonIgnoreProperties(ignoreUnknown = true)
 	@Data
 	@AllArgsConstructor
+	@NoArgsConstructor
 	public static class TextResourceContents implements ResourceContents {
 		@JsonProperty("uri") String uri;
 		@JsonProperty("mimeType") String mimeType;

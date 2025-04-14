@@ -29,6 +29,13 @@
 		</dependency>
 
 		<dependency>
+			<groupId>io.modelcontextprotocol.sdk.j8</groupId>
+			<artifactId>mcp-test</artifactId>
+			<version>0.8.1</version>
+			<scope>test</scope>
+		</dependency>
+
+		<dependency>
 			<groupId>org.springframework</groupId>
 			<artifactId>spring-webmvc</artifactId>
 			<version>${springframework.version}</version>
