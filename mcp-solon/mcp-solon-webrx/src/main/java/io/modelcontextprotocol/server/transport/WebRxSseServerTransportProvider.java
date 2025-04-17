@@ -52,7 +52,7 @@ import java.util.concurrent.ConcurrentHashMap;
  * <p>
  * This implementation is thread-safe and can handle multiple concurrent client
  * connections. It uses {@link ConcurrentHashMap} for session management and Project
- * Reactor's non-blocking APIs for message processing and delivery.
+ * Reactor's non-blocking APIs for message processing and delivery. and base JDK8
  *
  * @author Christian Tzolov
  * @author Alexandros Pappas
@@ -92,7 +92,7 @@ public class WebRxSseServerTransportProvider implements McpServerTransportProvid
 	 * Map of active client sessions, keyed by session ID.
 	 */
 	private final ConcurrentHashMap<String, McpServerSession> sessions = new ConcurrentHashMap<>();
-
+	private final ConcurrentHashMap<String, WebRxMcpSessionTransport> sessionTransports = new ConcurrentHashMap<>();
 	/**
 	 * Flag indicating if the transport is shutting down.
 	 */
@@ -117,9 +117,25 @@ public class WebRxSseServerTransportProvider implements McpServerTransportProvid
 		this.sseEndpoint = sseEndpoint;
 	}
 
+	public void sendHeartbeat(){
+		for (WebRxMcpSessionTransport transport : sessionTransports.values()) {
+			transport.sendHeartbeat();
+		}
+	}
+
 	public void toHttpHandler(SolonApp app) {
-		app.get(this.sseEndpoint, this::handleSseConnection);
-		app.post(this.messageEndpoint, this::handleMessage);
+		if (app != null) {
+			app.get(this.sseEndpoint, this::handleSseConnection);
+			app.post(this.messageEndpoint, this::handleMessage);
+		}
+	}
+
+	public String getSseEndpoint() {
+		return sseEndpoint;
+	}
+
+	public String getMessageEndpoint() {
+		return messageEndpoint;
 	}
 
 	/**
@@ -160,7 +176,7 @@ public class WebRxSseServerTransportProvider implements McpServerTransportProvid
 	 * errors if any session fails to receive the message
 	 */
 	@Override
-	public Mono<Void> notifyClients(String method, Map<String, Object> params) {
+	public Mono<Void> notifyClients(String method, Map<String,Object> params) {
 		if (sessions.isEmpty()) {
 			logger.debug("No active sessions to broadcast message to");
 			return Mono.empty();
@@ -169,11 +185,11 @@ public class WebRxSseServerTransportProvider implements McpServerTransportProvid
 		logger.debug("Attempting to broadcast message to {} active sessions", sessions.size());
 
 		return Flux.fromStream(sessions.values().stream())
-			.flatMap(session -> session.sendNotification(method, params)
-				.doOnError(e -> logger.error("Failed to " + "send message to session " + "{}: {}", session.getId(),
-						e.getMessage()))
-				.onErrorComplete())
-			.then();
+				.flatMap(session -> session.sendNotification(method, params)
+						.doOnError(e -> logger.error("Failed to " + "send message to session " + "{}: {}", session.getId(),
+								e.getMessage()))
+						.onErrorComplete())
+				.then();
 	}
 
 	// FIXME: This javadoc makes claims about using isClosing flag but it's not actually
@@ -195,9 +211,9 @@ public class WebRxSseServerTransportProvider implements McpServerTransportProvid
 	@Override
 	public Mono<Void> closeGracefully() {
 		return Flux.fromIterable(sessions.values())
-			.doFirst(() -> logger.debug("Initiating graceful shutdown with {} active sessions", sessions.size()))
-			.flatMap(McpServerSession::closeGracefully)
-			.then();
+				.doFirst(() -> logger.debug("Initiating graceful shutdown with {} active sessions", sessions.size()))
+				.flatMap(McpServerSession::closeGracefully)
+				.then();
 	}
 
 	/**
@@ -206,7 +222,7 @@ public class WebRxSseServerTransportProvider implements McpServerTransportProvid
 	 * @param ctx The incoming server context
 	 * @return A Mono which emits a response with the SSE event stream
 	 */
-	private void handleSseConnection(Context ctx) throws Throwable{
+	public void handleSseConnection(Context ctx) throws Throwable{
 		if (isClosing) {
 			ctx.status(503);
 			ctx.output("Server is shutting down");
@@ -221,6 +237,7 @@ public class WebRxSseServerTransportProvider implements McpServerTransportProvid
 
 			logger.debug("Created new SSE connection for session: {}", sessionId);
 			sessions.put(sessionId, session);
+			sessionTransports.put(sessionId, sessionTransport);
 
 			// Send initial endpoint event
 			logger.debug("Sending initial endpoint event to session: {}", sessionId);
@@ -230,6 +247,7 @@ public class WebRxSseServerTransportProvider implements McpServerTransportProvid
 			sink.onCancel(() -> {
 				logger.debug("Session {} cancelled", sessionId);
 				sessions.remove(sessionId);
+				sessionTransports.remove(sessionId);
 			});
 		});
 
@@ -249,25 +267,25 @@ public class WebRxSseServerTransportProvider implements McpServerTransportProvid
 	 * <li>Returns appropriate HTTP responses based on processing results</li>
 	 * <li>Handles various error conditions with appropriate error responses</li>
 	 * </ul>
-	 * @param request The incoming server request containing the JSON-RPC message
+	 * @param ctx The incoming server request context containing the JSON-RPC message
 	 * @return A Mono emitting the response indicating the message processing result
 	 */
-	private void handleMessage(Context request) throws Throwable {
+	public void handleMessage(Context ctx) throws Throwable {
 		if (isClosing) {
-			request.status(503);
-			request.output("Server is shutting down");
+			ctx.status(503);
+			ctx.output("Server is shutting down");
 			return;
 		}
 
-		if (Utils.isEmpty(request.param("sessionId"))) {
-			request.status(404);
-			request.render(new McpError("Session ID missing in message endpoint"));
+		if (Utils.isEmpty(ctx.param("sessionId"))) {
+			ctx.status(404);
+			ctx.render(new McpError("Session ID missing in message endpoint"));
 			return;
 		}
 
-		McpServerSession session = sessions.get(request.param("sessionId"));
+		McpServerSession session = sessions.get(ctx.param("sessionId"));
 
-		String body = request.body();
+		String body = ctx.body();
 		try {
 			McpSchema.JSONRPCMessage message = McpSchema.deserializeJsonRpcMessage(objectMapper, body);
 
@@ -276,18 +294,18 @@ public class WebRxSseServerTransportProvider implements McpServerTransportProvid
 						return Mono.just(new Entity());
 					})
 					.onErrorResume(error -> {
-                        logger.error("Error processing  message: {}", error.getMessage());
-                        // TODO: instead of signalling the error, just respond with 200 OK
-                        // - the error is signalled on the SSE connection
-                        // return ServerResponse.ok().build();
-                        return Mono.just(new Entity().status(500).body(new McpError(error.getMessage())));
-                    });
+						logger.error("Error processing  message: {}", error.getMessage());
+						// TODO: instead of signalling the error, just respond with 200 OK
+						// - the error is signalled on the SSE connection
+						// return ServerResponse.ok().build();
+						return Mono.just(new Entity().status(500).body(new McpError(error.getMessage())));
+					});
 
-			request.returnValue(mono);
+			ctx.returnValue(mono);
 		} catch (IllegalArgumentException | IOException e) {
 			logger.error("Failed to deserialize message: {}", e.getMessage());
-			request.status(400);
-			request.render(new McpError("Invalid message format"));
+			ctx.status(400);
+			ctx.render(new McpError("Invalid message format"));
 		}
 	}
 
@@ -297,6 +315,10 @@ public class WebRxSseServerTransportProvider implements McpServerTransportProvid
 
 		public WebRxMcpSessionTransport(FluxSink<SseEvent> sink) {
 			this.sink = sink;
+		}
+
+		public void sendHeartbeat() {
+			sink.next(new SseEvent().comment("heartbeat"));
 		}
 
 		@Override
@@ -310,8 +332,8 @@ public class WebRxSseServerTransportProvider implements McpServerTransportProvid
 				}
 			}).doOnNext(jsonText -> {
 				SseEvent event = new SseEvent()
-					.name(MESSAGE_EVENT_TYPE)
-					.data(jsonText);
+						.name(MESSAGE_EVENT_TYPE)
+						.data(jsonText);
 				sink.next(event);
 			}).doOnError(e -> {
 				// TODO log with sessionid
