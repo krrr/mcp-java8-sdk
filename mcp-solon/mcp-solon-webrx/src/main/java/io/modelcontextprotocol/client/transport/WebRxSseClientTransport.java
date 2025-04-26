@@ -114,7 +114,7 @@ public class WebRxSseClientTransport implements McpClientTransport {
 	 * @throws IllegalArgumentException if objectMapper or clientBuilder is null
 	 */
 	public WebRxSseClientTransport(HttpUtilsBuilder webBuilder, String sseEndpoint,
-                                   ObjectMapper objectMapper) {
+								   ObjectMapper objectMapper) {
 		Assert.notNull(objectMapper, "ObjectMapper must not be null");
 		Assert.notNull(webBuilder, "baseUri must not be empty");
 		Assert.hasText(sseEndpoint, "sseEndpoint must not be empty");
