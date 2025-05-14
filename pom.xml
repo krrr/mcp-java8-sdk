@@ -92,7 +92,7 @@
 		<awaitility.version>4.2.0</awaitility.version>
 		<bnd-maven-plugin.version>5.0.1</bnd-maven-plugin.version>
 		<json-unit-assertj.version>2.40.1</json-unit-assertj.version>
-		<solon.version>3.2.1</solon.version>
+		<solon.version>3.3.0</solon.version>
 
 	</properties>
 
