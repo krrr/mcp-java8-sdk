@@ -162,7 +162,7 @@ public class FlowSseClient {
 			}
 
 			private void onLine(String line) {
-				if (line.isEmpty()) {
+				if (line.trim().isEmpty()) {
 					// Empty line means end of event
 					if (eventBuilder.length() > 0) {
 						String eventData = eventBuilder.toString();
