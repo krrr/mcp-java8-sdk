@@ -258,13 +258,21 @@ public class HttpClientSseClientTransport implements McpClientTransport {
 	 */
 	@Override
 	public Mono<Void> closeGracefully() {
-		return Mono.fromRunnable(() -> {
-			isClosing = true;
-			CompletableFuture<Void> future = connectionFuture.get();
-			if (future != null && !future.isDone()) {
-				future.cancel(true);
-			}
-		});
+	    return Mono.fromRunnable(() -> {
+		isClosing = true;
+		CompletableFuture<Void> future = connectionFuture.get();
+		if (future != null && !future.isDone()) {
+		    future.cancel(true);
+		}
+		try {
+		    // Properly close the HTTP client to release resources
+		    if (httpClient != null) {
+			httpClient.close();
+		    }
+		} catch (IOException e) {
+		    logger.error("Error closing HttpClient", e);
+		}
+	    });
 	}
 
 	/**
